@@ -1,0 +1,61 @@
+<nav class="admin-navbar">
+  <ul>
+    <li><a href="/" class="<%= currentPage === 'dashboard' ? 'active' : '' %>">Dashboard</a></li>
+    <li><a href="/" class="<%= currentPage === 'sites' ? 'active' : '' %>">Site Management</a></li>
+    <li><a href="/admin/upload-links-dashboard" class="<%= currentPage === 'upload-links' ? 'active' : '' %>">Upload Links</a></li>
+    <!--<li><a href="/admin/users" class="<%= currentPage === 'users' ? 'active' : '' %>">User Management</a></li>-->
+    <li style="float:right"><button id="logoutBtn" class="logout-btn" style="margin-left:1.5rem;">Logout</button></li>
+  </ul>
+</nav>
+<style>
+.admin-navbar {
+  background: var(--section-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 0.5rem 2rem;
+  margin-bottom: 1.5rem;
+}
+.admin-navbar ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+.admin-navbar li {
+  margin-right: 2rem;
+}
+.admin-navbar a {
+  text-decoration: none;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 1.05rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 5px;
+  transition: background 0.2s;
+}
+.admin-navbar a.active, .admin-navbar a:hover {
+  background: var(--primary);
+  color: white;
+}
+</style>
+<script>
+// Logout functionality for navbar
+const logoutBtn = document.getElementById('logoutBtn');
+if (logoutBtn) {
+  logoutBtn.addEventListener('click', async () => {
+    try {
+      const response = await fetch('/auth/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (response.ok) {
+        window.location.href = '/login';
+      } else {
+        alert('Logout failed');
+      }
+    } catch (error) {
+      alert('Logout failed');
+    }
+  });
+}
+</script> 

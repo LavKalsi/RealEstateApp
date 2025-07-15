@@ -1,0 +1,176 @@
+<%- include('partials/admin-navbar', { currentPage: 'upload-links', userProfile: userProfile }) %>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Links Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/auth.css">
+  <style>
+    .links-table { width: 100%; border-collapse: collapse; margin-top: 2rem; }
+    .links-table th, .links-table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); text-align: left; }
+    .links-table th { background: var(--section-bg); }
+    .status-badge { padding: 0.2em 0.7em; border-radius: 1em; font-size: 0.9em; font-weight: 600; }
+    .status-active { background: #e6f4ea; color: #388e3c; }
+    .status-expired { background: #fbe9e7; color: #d84315; }
+    .status-used { background: #ffe082; color: #ff6f00; }
+    .status-permanent { background: #e3f2fd; color: #1976d2; }
+    .copy-btn, .delete-btn { cursor: pointer; border: none; background: none; font-size: 1.1em; margin-right: 0.5em; }
+    .copy-btn:hover { color: var(--primary); }
+    .delete-btn { color: #f44336; }
+    .delete-btn:hover { color: #b71c1c; }
+    .create-link-form { margin-top: 2rem; display: flex; gap: 1.5rem; align-items: flex-end; flex-wrap: wrap; }
+    .create-link-form label { font-weight: 500; }
+    .create-link-form input, .create-link-form select { padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border); }
+    .create-link-form button { background: var(--primary); color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; font-weight: 600; cursor: pointer; }
+    .create-link-form button:hover { background: #7b1fa2; }
+  </style>
+</head>
+<body>
+  <div class="mode-toggle">
+    <button id="toggleMode">🌙/☀️</button>
+  </div>
+  <div class="container" style="max-width: 1100px; margin: 0 auto; flex-direction: column;">
+    <h1>Upload Links Dashboard</h1>
+    <form id="createLinkForm" class="create-link-form">
+      <div>
+        <label for="type">Type</label><br>
+        <select id="type" name="type" required>
+          <option value="temporary">Temporary (one-time or expires)</option>
+          <option value="permanent">Permanent</option>
+        </select>
+      </div>
+      <div id="expiresInDiv">
+        <label for="expiresIn">Expires In (minutes)</label><br>
+        <input type="number" id="expiresIn" name="expiresIn" min="1" max="1440" value="30">
+      </div>
+      <div>
+        <label for="description">Description</label><br>
+        <input type="text" id="description" name="description" placeholder="(optional)">
+      </div>
+      <button type="submit">Create Link</button>
+    </form>
+    <div id="statusAlert" class="status-alert" style="display:none;"></div>
+    <table class="links-table" id="linksTable">
+      <thead>
+        <tr>
+          <th>Link</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Expires</th>
+          <th>Description</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <script src="/js/main.js"></script>
+  <script>
+    // Light/Dark mode toggle
+    const toggleBtn = document.getElementById('toggleMode');
+    if (toggleBtn) {
+      toggleBtn.onclick = () => {
+        document.body.classList.toggle('dark');
+        localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+      };
+      if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark');
+    }
+    // Show/hide expiresIn for type
+    const typeSelect = document.getElementById('type');
+    const expiresInDiv = document.getElementById('expiresInDiv');
+    typeSelect.addEventListener('change', () => {
+      expiresInDiv.style.display = typeSelect.value === 'temporary' ? '' : 'none';
+    });
+    expiresInDiv.style.display = typeSelect.value === 'temporary' ? '' : 'none';
+    // Show alert
+    function showAlert(msg, type = 'success') {
+      const alert = document.getElementById('statusAlert');
+      if (!alert) return;
+      alert.textContent = msg;
+      alert.className = `status-alert ${type}`;
+      alert.style.display = 'block';
+      setTimeout(() => { alert.style.display = 'none'; }, 3500);
+    }
+    // Fetch and render links
+    async function fetchLinks() {
+      const res = await fetch('/admin/upload-links');
+      const data = await res.json();
+      renderLinks(data.links || []);
+    }
+    function renderLinks(links) {
+      const tbody = document.querySelector('#linksTable tbody');
+      tbody.innerHTML = '';
+      links.forEach(link => {
+        const url = `${window.location.origin}/upload/${link.token}`;
+        let status = '';
+        let badgeClass = '';
+        if (!link.active) {
+          status = 'Inactive'; badgeClass = 'status-expired';
+        } else if (link.type === 'permanent') {
+          status = 'Permanent'; badgeClass = 'status-permanent';
+        } else if (link.used) {
+          status = 'Used'; badgeClass = 'status-used';
+        } else if (link.expires_at && new Date(link.expires_at) < new Date()) {
+          status = 'Expired'; badgeClass = 'status-expired';
+        } else {
+          status = 'Active'; badgeClass = 'status-active';
+        }
+        tbody.innerHTML += `
+          <tr>
+            <td><input type="text" value="${url}" readonly style="width: 320px;"/></td>
+            <td>${link.type.charAt(0).toUpperCase() + link.type.slice(1)}</td>
+            <td><span class="status-badge ${badgeClass}">${status}</span></td>
+            <td>${link.expires_at ? new Date(link.expires_at).toLocaleString() : '-'}</td>
+            <td>${link.description || ''}</td>
+            <td>
+              <button class="copy-btn" title="Copy Link" onclick="copyLink('${url}')">📋</button>
+              <button class="delete-btn" title="Delete Link" onclick="deleteLink('${link.id}')">🗑️</button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+    // Copy link
+    window.copyLink = function(url) {
+      navigator.clipboard.writeText(url);
+      showAlert('Link copied!');
+    };
+    // Delete link
+    window.deleteLink = async function(id) {
+      if (!confirm('Delete this link?')) return;
+      const res = await fetch(`/admin/upload-links/${id}/delete`, { method: 'POST' });
+      if (res.ok) {
+        showAlert('Link deleted!');
+        fetchLinks();
+      } else {
+        showAlert('Failed to delete link', 'error');
+      }
+    };
+    // Create link
+    document.getElementById('createLinkForm').onsubmit = async e => {
+      e.preventDefault();
+      const type = document.getElementById('type').value;
+      const expiresIn = document.getElementById('expiresIn').value;
+      const description = document.getElementById('description').value;
+      const body = { type, description };
+      if (type === 'temporary') body.expiresInMinutes = expiresIn;
+      const res = await fetch('/admin/upload-links', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (res.ok) {
+        showAlert('Link created!');
+        document.getElementById('createLinkForm').reset();
+        fetchLinks();
+      } else {
+        showAlert('Failed to create link', 'error');
+      }
+    };
+    // Initial load
+    fetchLinks();
+  </script>
+</body>
+</html> 

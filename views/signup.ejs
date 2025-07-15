@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign Up - Real Estate Invoice Processor</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/auth.css">
+</head>
+<body>
+  <div class="mode-toggle">
+    <button id="toggleMode">🌙/☀️</button>
+  </div>
+  
+  <div id="statusAlert" class="status-alert" style="display:none;"></div>
+  
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-header">
+        <h1>Create Account</h1>
+        <p>Join our platform</p>
+      </div>
+      
+      <form id="signupForm" class="auth-form">
+        <div class="form-group">
+          <label for="fullName">Full Name</label>
+          <input type="text" id="fullName" name="fullName" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required minlength="6">
+        </div>
+        
+        <div class="form-group">
+          <label for="confirmPassword">Confirm Password</label>
+          <input type="password" id="confirmPassword" name="confirmPassword" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="role">Role</label>
+          <select id="role" name="role" required>
+            <option value="">Select a role</option>
+            <option value="admin">Admin - Full access to all features</option>
+            <option value="manager">Manager - Can manage sites and stock</option>
+            <option value="worker">Worker - Can view and update stock</option>
+            <option value="viewer">Viewer - Read-only access</option>
+          </select>
+        </div>
+        
+        <button type="submit" class="auth-btn">Create Account</button>
+      </form>
+      
+      <div class="auth-footer">
+        <p>Already have an account? <a href="/login">Sign in</a></p>
+      </div>
+    </div>
+  </div>
+
+  <% if (userProfile && userProfile.role === 'admin') { %>
+    <div style="text-align:center;margin-top:2rem;">
+      <a href="/admin/upload-links-dashboard" class="auth-btn">Go to Admin Dashboard</a>
+    </div>
+  <% } %>
+
+  <script src="/js/auth.js"></script>
+</body>
+</html> 

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Real Estate Invoice Processor</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .container { max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+    .section { background: var(--section-bg); border-radius: 12px; padding: 2rem; margin-bottom: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .upload-title { text-align: center; margin-bottom: 1.5rem; color: var(--text-primary); }
+    .upload-status { margin-bottom: 1.5rem; text-align: center; font-weight: 500; }
+    .upload-success { color: #388e3c; }
+    .upload-error { color: #d84315; }
+    .drop-area { border: 2px dashed var(--border-color); border-radius: 8px; padding: 2rem; text-align: center; margin-bottom: 1rem; }
+    .drop-area.drag-over { border-color: var(--primary); background: var(--hover-bg); }
+    .file-label { color: var(--primary); cursor: pointer; }
+    .file-label:hover { text-decoration: underline; }
+    .upload-btn { background: var(--primary); color: white; border: none; padding: 0.7rem 1.5rem; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; width: 100%; margin-top: 1rem; }
+    .upload-btn:hover { background: var(--primary-dark); }
+    .camera-btn { background: var(--secondary); color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; font-size: 1rem; width: 100%; margin-top: 0.5rem; cursor: pointer; }
+    .camera-btn:hover { background: var(--secondary-dark); }
+    .image-preview { margin-top: 1rem; }
+    .image-preview img { max-width: 100%; max-height: 300px; border-radius: 8px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .form-full { grid-column: 1 / -1; }
+    label { display: block; margin-bottom: 0.5rem; color: var(--text-secondary); }
+    input, textarea { width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--input-bg); color: var(--text-primary); }
+    textarea { min-height: 100px; resize: vertical; }
+  </style>
+</head>
+<body>
+  <% if (userProfile && userProfile.role === 'admin') { %>
+    <%- include('partials/admin-navbar', { currentPage: 'dashboard', userProfile: userProfile }) %>
+  <% } %>
+  <div class="mode-toggle">
+    <button id="toggleMode">🌙/☀️</button>
+  </div>
+  
+  <div class="user-header">
+    <div class="user-info">
+      <span>Welcome, <%= userProfile ? userProfile.full_name : user.email %></span>
+      <span class="user-role">(<%= userProfile ? userProfile.role : 'user' %>)</span>
+    </div>
+    <button id="logoutBtn" class="logout-btn">Logout</button>
+  </div>
+  
+  <div class="site-header">
+    <label for="siteSelector">Site:</label>
+    <select id="siteSelector"></select>
+    <button id="manageSitesBtn" class="<%= userProfile && ['admin', 'manager'].includes(userProfile.role) ? '' : 'hidden' %>">Manage Sites</button>
+  </div>
+  <div id="siteModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <span class="close" id="closeSiteModal">&times;</span>
+      <h2>Manage Sites</h2>
+      <form id="addSiteForm">
+        <input type="text" id="siteName" placeholder="Site Name" required>
+        <input type="text" id="siteAddress" placeholder="Address" required>
+        <select id="siteStatus">
+          <option value="Active">Active</option>
+          <option value="Completed">Completed</option>
+          <option value="On Hold">On Hold</option>
+        </select>
+        <button type="submit">Add Site</button>
+      </form>
+      <ul id="siteList"></ul>
+    </div>
+  </div>
+  <div id="statusAlert" class="status-alert" style="display:none;"></div>
+  <div class="container">
+    <div id="linkInfo" class="upload-link-info"></div>
+    <div id="statusMsg" class="upload-status"></div>
+
+    <div class="section section-upload">
+      <h2 class="upload-title">Upload Invoice</h2>
+      <form id="uploadForm">
+        <div id="dropArea" class="drop-area">
+          <p>Drag & Drop or <label for="invoiceImage" class="file-label">Browse</label></p>
+          <input type="file" id="invoiceImage" name="invoiceImage" accept="image/*,application/pdf" hidden>
+          <div id="imagePreview" class="image-preview"></div>
+        </div>
+        <button type="button" id="cameraBtn" class="camera-btn">📷 Use Camera</button>
+        <button type="submit" class="upload-btn">Upload & Extract</button>
+      </form>
+    </div>
+
+    <div class="section section-form">
+      <h2 class="upload-title">Manual Invoice Entry</h2>
+      <form id="manualInvoiceForm">
+        <div class="form-grid">
+          <label>
+            Invoice Number*
+            <input type="text" name="invoiceNumber" required>
+          </label>
+          <label>
+            Client Name*
+            <input type="text" name="clientName" required>
+          </label>
+          <label>
+            Amount*
+            <input type="number" name="amount" required min="0" step="0.01">
+          </label>
+          <label>
+            Date*
+            <input type="date" name="date" required>
+          </label>
+          <label class="form-full">
+            Property Address*
+            <textarea name="propertyAddress" required></textarea>
+          </label>
+          <label class="form-full">
+            Service Description
+            <textarea name="serviceDescription"></textarea>
+          </label>
+        </div>
+        <button type="submit" class="upload-btn">Submit Invoice</button>
+      </form>
+    </div>
+
+    <div id="reviewSection" class="section review-section" style="display:none;">
+      <h2 class="upload-title">Review Invoice</h2>
+      <div class="review-grid">
+        <div class="review-item">
+          <div class="review-label">Invoice Number</div>
+          <div id="reviewInvoiceNumber" class="review-value"></div>
+        </div>
+        <div class="review-item">
+          <div class="review-label">Client Name</div>
+          <div id="reviewClientName" class="review-value"></div>
+        </div>
+        <div class="review-item">
+          <div class="review-label">Amount</div>
+          <div id="reviewAmount" class="review-value"></div>
+        </div>
+        <div class="review-item">
+          <div class="review-label">Date</div>
+          <div id="reviewDate" class="review-value"></div>
+        </div>
+        <div class="review-item form-full">
+          <div class="review-label">Property Address</div>
+          <div id="reviewAddress" class="review-value"></div>
+        </div>
+        <div class="review-item form-full">
+          <div class="review-label">Service Description</div>
+          <div id="reviewDescription" class="review-value"></div>
+        </div>
+      </div>
+      <div class="buttons-container">
+        <button type="button" id="editButton" class="camera-btn">Edit Information</button>
+        <button type="button" id="confirmButton" class="upload-btn">Confirm & Submit</button>
+      </div>
+    </div>
+
+    <div id="successMsg" class="upload-success" style="display:none;text-align:center;padding:1rem;"></div>
+  </div>
+  <div class="container">
+    <div class="section section-stock">
+      <h2>Stock Management</h2>
+      <button id="addMaterialBtn" class="<%= userProfile && ['admin', 'manager'].includes(userProfile.role) ? '' : 'hidden' %>">Add Material</button>
+      <table id="materialTable" class="stock-table">
+        <thead>
+          <tr><th>Name</th><th>Unit</th><th>Cost</th><th>Quantity</th><th>Actions</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div id="stockOps" style="margin-top:1.5rem;">
+        <h3>Stock Operations</h3>
+        <button id="receiveStockBtn" class="<%= userProfile && ['admin', 'manager', 'worker'].includes(userProfile.role) ? '' : 'hidden' %>">Receive Stock</button>
+        <button id="issueStockBtn" class="<%= userProfile && ['admin', 'manager', 'worker'].includes(userProfile.role) ? '' : 'hidden' %>">Issue Stock</button>
+        <button id="transferStockBtn" class="<%= userProfile && ['admin', 'manager', 'worker'].includes(userProfile.role) ? '' : 'hidden' %>">Transfer Stock</button>
+      </div>
+      <div id="stockHistorySection" style="margin-top:2rem;">
+        <h3>Stock History</h3>
+        <table id="stockHistoryTable" class="stock-table">
+          <thead>
+            <tr><th>Date</th><th>Material</th><th>Type</th><th>Qty</th><th>Note</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <script src="/js/main.js"></script>
+</body>
+</html>
